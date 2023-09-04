@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.board.mappers.board">
+<!-- mapper의 namespace와 BoardDAOImpl의 namespace 일치해야함 -->
+<!-- namespace는 각각의 매퍼를 구분하는 고유명이 된다 -->
+<!-- id는 매퍼 내에서 쿼리를 구분짓는 고유한 이름 -->
+<!--  mapper id가 DAO namespace뒤의 이름과 동일  -->
+<!--  resultType는 쿼리의 결과 형태 =데이터를 쿼리를 실행한 뒤 결과가 있을 경우 사용 . 조회 결과 값을 저장하기위한 데이터  -->
+<!-- parameterType은 데이터를 넣을때 사용한다. 전달받은 데이터 타입을 지정하기   -->
+<!-- =가져오는 값을 resultType에 저장하고 paramterType 에서 정한 타입으로 받는것. -->
+ 
+<!-- 게시물 목록  + 페이징 합치기-->
+<!-- parameterTyp 확인하기 -->
+<!-- 별칭 지정해주기 lvl / vo, jsp 도 별칭으로 받기-->
+<!-- row_number() notice 기준으로 정렬=rNum :파티션의 각 행 또는 결과 집합의 각 행에 순차 고유 정수를 할당하는 분석 함수 -->
+ <select id="list" resultType="com.board.domain.BoardVO" parameterType="com.board.domain.Criteria">
+ <![CDATA[
+   select * from (
+   select lvl, bno, parentNO,  title, content,  regDate, writer, viewCnt, notice,
+               row_number() over(order by notice desc) as rNum
+    from (
+           SELECT level lvl, bno, parentNO, LPAD(' ', 4*(LEVEL-1)) || title title, content, regDate, writer, viewCnt, notice
+			from tbl_board
+			START WITH parentNO=0
+			CONNECT BY PRIOR bno=parentNO 
+			ORDER SIBLINGS BY notice desc, bno desc
+ ) )
+ where rNum between #{rowStart} and #{rowEnd}
+
+ ]]>
+</select>
+
+
+<!-- 게시물 총 갯수 확인 -->
+<!-- 번호만 있으면 확인 가능해 매개변수 타입 정수로 설정 -->
+<select id="listCount" resultType="int">
+ select count(bno) from tbl_board
+ where bno > 0
+</select>
+
+
+ 
+<!-- 게시물 작성 -->
+<!-- parameterType은 데이터를 넣을때 사용한다   -->
+<insert id="write" parameterType="com.board.domain.BoardVO">
+ insert into
+  tbl_board(bno, title, content, writer, notice,  viewCnt)
+   values(seq_board.nextval, #{title}, #{content}, #{writer}, #{notice},  #{viewCnt})
+</insert>
+ 
+ <!-- 게시물 조회 -->
+<select id="view" parameterType="int" resultType="com.board.domain.BoardVO">
+ select 
+  bno, title, content, writer, regDate, viewCnt, notice
+ from 
+  tbl_board
+ where
+  bno = #{bno}   
+</select>
+ 
+<!-- 게시물 수정 -->
+<update id="modify" parameterType="com.board.domain.BoardVO" >
+ update tbl_board
+  set
+   title = #{title},
+   content = #{content},
+   writer = #{writer},
+   notice=#{notice}
+  where bno = #{bno}
+</update>
+
+<!-- 게시글 삭제 -->
+<!-- 게시물 번호만 있으면 삭제 할 수 있기 때문에 매개변수 타입을 정수로 설정 -->
+<delete id="delete" parameterType="int">
+ delete
+  from tbl_board
+ where bno = #{bno}
+</delete>
+
+<!-- 조회수  -->
+ <update id="updateViewCnt">
+    update tbl_board
+    set viewCnt = viewCnt +1
+    where bno =
+    #{bno}
+</update>
+
+<!-- 답글 -->
+ <insert id="reply" parameterType="com.board.domain.BoardVO">
+ insert into
+  tbl_board(bno, title, content, writer, notice,  viewCnt, parentNO)
+   values(seq_board.nextval, #{title}, #{content}, #{writer}, #{notice},  #{viewCnt}, #{parentNO})
+</insert>
+
+
+</mapper>
